@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jpeg corrupter</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            align-content: center;
+            width: 100vw;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+
+        .container img {
+            background-color: black;
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container"></div>
+    <script>
+        const baseUrl = "http://localhost:3333";
+
+        const pictureEndpoint = "/picture?index="
+        const corruptEndpoint = "/corrupt"
+
+        const container = document.getElementById("container");
+        const imageElements = [];
+
+        async function loadPictures() {
+            let index = 0;
+
+            while (true) {
+                try {
+                    const response = await fetch(baseUrl + pictureEndpoint + index);
+
+                    if (!response.ok) {
+                        break;
+                    }
+
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+
+                    const img = document.createElement("img");
+
+                    img.src = url;
+
+                    container.appendChild(img);
+                    imageElements.push(img);
+                    
+                    index++;
+                } catch (error) {
+                    break;
+                }
+            }
+        }
+
+        async function corruptPictures() {
+            try {
+                const response = await fetch(baseUrl + corruptEndpoint);
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch /corrupt");
+                }
+
+                const corruptedIndexes = await response.json();
+
+                for (const index of corruptedIndexes) {
+                    const img = imageElements[index];
+
+                    if (img) {
+                        const response = await fetch(baseUrl + pictureEndpoint + index);
+
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+
+                            let previousWidth = img.width;
+                            let previousHeight = img.height;
+
+                            URL.revokeObjectURL(img.src);
+
+                            img.src = url;
+                            img.width = previousWidth;
+                            img.height = previousHeight;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error refreshing pictures:", error);
+            }
+        }
+
+        loadPictures().then(() => {
+            setInterval(corruptPictures, 1000);
+        });
+    </script>
+</body>
+</html>
